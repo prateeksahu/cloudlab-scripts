@@ -72,6 +72,7 @@ class PowderExperiment:
             poll_count = 0
             while self.still_provisioning and poll_count < self._poll_count_max:
                 self._get_status()
+                poll_count = poll_count + 1
                 time.sleep(self.POLL_INTERVAL_S)
         else:
             self.status = self.EXPERIMENT_FAILED
@@ -116,6 +117,8 @@ class PowderExperiment:
                     client_id = node['@client_id']
                     self.nodes[client_id] = Node(client_id=client_id, ip_address=ipv4,
                                                  hostname=hostname)
+                    self.nodes[client_id].sshp.user = node['services']['login'][0]['@username']
+                    self.nodes[client_id].sshp.host = node['services']['login'][0]['@hostname']
                     logging.info('parsed manifests for node {}'.format(client_id))
                 except KeyError:
                     pass
@@ -131,14 +134,14 @@ class PowderExperiment:
                                                     self.experiment_name)
         if rval == prpc.RESPONSE_SUCCESS:
             output = response['output']
-            if output == 'Status: ready\n':
+            if "Status: ready\n" in output:
                 self.status = self.EXPERIMENT_READY
                 self._get_manifests()._parse_manifests()
-            elif output == 'Status: provisioning\n':
+            elif 'Status: provisioning\n' in output:
                 self.status = self.EXPERIMENT_PROVISIONING
-            elif output == 'Status: provisioned\n':
+            elif 'Status: provisioned\n' in output:
                 self.status = self.EXPERIMENT_PROVISIONED
-            elif output == 'Status: failed\n':
+            elif 'Status: failed\n' in output:
                 self.status = self.EXPERIMENT_FAILED
 
             self.still_provisioning = self.status in [self.EXPERIMENT_PROVISIONING,
@@ -149,6 +152,20 @@ class PowderExperiment:
 
         return self
 
+class SSH_Param:
+    """Represents a node on the Powder platform. Holds an SSHConnection instance for
+    interacting with the node.
+
+    Attributes:
+        client_id (str): Matches the id defined for the node in the Powder profile.
+        ip_address (str): The public IP address of the node.
+        hostname (str): The hostname of the node.
+        ssh (SSHConnection): For interacting with the node via ssh through pexpect.
+
+    """
+    def __init__(self, user, host):
+        self.user = user
+        self.host = host
 
 class Node:
     """Represents a node on the Powder platform. Holds an SSHConnection instance for
@@ -165,4 +182,5 @@ class Node:
         self.client_id = client_id
         self.ip_address = ip_address
         self.hostname = hostname
+        self.sshp = SSH_Param(user='', host='')
         self.ssh = pssh.SSHConnection(ip_address=self.ip_address)

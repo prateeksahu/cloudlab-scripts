@@ -42,7 +42,7 @@ class SSHConnection:
         """Opens a connection to `self.ip_address` using `self.username`."""
 
         retry_count = 0
-        cmd = 'ssh -l {} {}'.format(self.username, self.ip_address)
+        cmd = 'ssh -o StrictHostKeyChecking=no -l {} {}'.format(self.username, self.ip_address)
         while retry_count < 4:
             self.ssh = pexpect.spawn(cmd, timeout=5)
             self.sshresponse = self.ssh.expect([self.prompt,
